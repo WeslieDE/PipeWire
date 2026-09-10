@@ -64,6 +64,7 @@ QString VirtualDeviceManager::createVirtualDevice(const QString &displayName)
     }
 
     m_modules.insert(handleId, module);
+    emit deviceCreated(handleId, displayName);
     return handleId;
 }
 
@@ -77,6 +78,7 @@ void VirtualDeviceManager::removeVirtualDevice(const QString &handleId)
     m_modules.erase(it);
 
     m_engine->runLocked([module]() { pw_impl_module_destroy(module); });
+    emit deviceRemoved(handleId);
 }
 
 QStringList VirtualDeviceManager::activeHandles() const

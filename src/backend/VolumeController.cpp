@@ -79,6 +79,8 @@ void VolumeController::setVolume(uint32_t nodeId, float linearVolume)
 
         pw_node_set_param(node, SPA_PARAM_Props, 0, pod);
     });
+
+    emit volumeChanged(nodeId, linearVolume);
 }
 
 void VolumeController::setMute(uint32_t nodeId, bool muted)

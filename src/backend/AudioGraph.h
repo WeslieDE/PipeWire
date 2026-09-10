@@ -4,6 +4,7 @@
 #include <QMap>
 #include <QMetaType>
 #include <QObject>
+#include <QPair>
 #include <QString>
 #include <cstdint>
 #include <optional>
@@ -39,9 +40,27 @@ struct AudioNode {
     QString name;        // node.name
     QString description; // node.description / device.description, Anzeigename
     QString appName;      // application.name, falls vorhanden (Apps statt Geräte)
+    QString processBinary; // application.process.binary, stabiler als appName
     QString iconName;     // application.icon-name, falls vorhanden
     bool isVirtual = false; // von MixPipe selbst angelegt (VirtualDeviceManager)
 };
+
+// Sitzungsübergreifend stabile Identität eines Nodes (PipeWire-IDs wechseln
+// pro Sitzung) - Grundlage für SessionStore/AutoReconnectManager, um
+// gespeicherte Regeln nach einem Neustart wieder den richtigen Nodes
+// zuzuordnen.
+struct NodeIdentity {
+    QString kind; // "app" | "device" | "virtual"
+    QString key;
+
+    bool isValid() const { return !kind.isEmpty() && !key.isEmpty(); }
+    bool operator==(const NodeIdentity &other) const
+    {
+        return kind == other.kind && key == other.key;
+    }
+};
+
+NodeIdentity identityForNode(const AudioNode &node);
 
 struct AudioLink {
     uint32_t id = 0;
@@ -52,6 +71,7 @@ struct AudioLink {
 };
 
 Q_DECLARE_METATYPE(AudioNode)
+Q_DECLARE_METATYPE(AudioPort)
 Q_DECLARE_METATYPE(AudioLink)
 
 // Reines Datenmodell des Audio-Graphen. Wird ausschließlich vom Qt-Main-Thread aus
@@ -78,12 +98,23 @@ public:
     std::optional<AudioNode> node(uint32_t id) const;
     std::optional<AudioPort> port(uint32_t id) const;
 
+    // Eindeutige (outputNodeId, inputNodeId)-Paare aus den aktuellen Links -
+    // eine PipeWire-Verbindung zwischen zwei Nodes kann aus mehreren
+    // Port-Links bestehen (z.B. Stereo), zählt für die UI aber als eine
+    // logische Verbindung.
+    QList<QPair<uint32_t, uint32_t>> nodeLinkPairs() const;
+
+    // Sucht den ersten aktuell bekannten Node mit passender Identität (siehe
+    // identityForNode), oder nullopt.
+    std::optional<AudioNode> findByIdentity(const NodeIdentity &identity) const;
+
 signals:
     void nodeAdded(const AudioNode &node);
     void nodeUpdated(const AudioNode &node);
     void nodeRemoved(uint32_t id);
+    void portAdded(const AudioPort &port);
     void linkAdded(const AudioLink &link);
-    void linkRemoved(uint32_t id);
+    void linkRemoved(const AudioLink &link);
 
 private:
     QMap<uint32_t, AudioNode> m_nodes;

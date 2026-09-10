@@ -26,6 +26,10 @@ add_executable(mixpipe
     src/backend/VolumeController.h
     src/backend/VirtualDeviceManager.cpp
     src/backend/VirtualDeviceManager.h
+    src/backend/SessionStore.cpp
+    src/backend/SessionStore.h
+    src/backend/AutoReconnectManager.cpp
+    src/backend/AutoReconnectManager.h
     resources.qrc
 )
 

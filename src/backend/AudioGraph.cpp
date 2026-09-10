@@ -1,5 +1,24 @@
 #include "AudioGraph.h"
 
+#include <QRegularExpression>
+#include <QSet>
+
+NodeIdentity identityForNode(const AudioNode &node)
+{
+    if (node.isVirtual) {
+        // node.name ist "<handle>_sink" oder "<handle>_source" (siehe
+        // VirtualDeviceManager) - beide Enden gehören zur selben Identität.
+        QString handle = node.name;
+        handle.remove(QRegularExpression(QStringLiteral("_(sink|source)$")));
+        return {QStringLiteral("virtual"), handle};
+    }
+    if (!node.appName.isEmpty()) {
+        const QString key = !node.processBinary.isEmpty() ? node.processBinary : node.appName;
+        return {QStringLiteral("app"), key};
+    }
+    return {QStringLiteral("device"), node.name};
+}
+
 bool isSourceRole(NodeRole role)
 {
     return role == NodeRole::SourceApp || role == NodeRole::SourceDevice;
@@ -36,6 +55,7 @@ void AudioGraph::removeNode(uint32_t id)
 void AudioGraph::upsertPort(const AudioPort &port)
 {
     m_ports.insert(port.id, port);
+    emit portAdded(port);
 }
 
 void AudioGraph::removePort(uint32_t id)
@@ -54,9 +74,13 @@ void AudioGraph::upsertLink(const AudioLink &link)
 
 void AudioGraph::removeLink(uint32_t id)
 {
-    if (m_links.remove(id) > 0) {
-        emit linkRemoved(id);
+    const auto it = m_links.constFind(id);
+    if (it == m_links.constEnd()) {
+        return;
     }
+    const AudioLink removed = *it;
+    m_links.remove(id);
+    emit linkRemoved(removed);
 }
 
 QList<AudioNode> AudioGraph::nodes() const
@@ -96,4 +120,26 @@ std::optional<AudioPort> AudioGraph::port(uint32_t id) const
         return std::nullopt;
     }
     return *it;
+}
+
+QList<QPair<uint32_t, uint32_t>> AudioGraph::nodeLinkPairs() const
+{
+    QSet<QPair<uint32_t, uint32_t>> unique;
+    for (const auto &link : m_links) {
+        unique.insert({link.outputNodeId, link.inputNodeId});
+    }
+    return unique.values();
+}
+
+std::optional<AudioNode> AudioGraph::findByIdentity(const NodeIdentity &identity) const
+{
+    if (!identity.isValid()) {
+        return std::nullopt;
+    }
+    for (const auto &node : m_nodes) {
+        if (identityForNode(node) == identity) {
+            return node;
+        }
+    }
+    return std::nullopt;
 }

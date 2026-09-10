@@ -225,6 +225,7 @@ void PipeWireEngine::handleNodeGlobal(uint32_t id, const struct spa_dict *props)
     node.description = description;
 
     node.appName = dictValue(props, PW_KEY_APP_NAME);
+    node.processBinary = dictValue(props, PW_KEY_APP_PROCESS_BINARY);
     node.iconName = dictValue(props, PW_KEY_APP_ICON_NAME);
     node.isVirtual = node.name.startsWith(QLatin1String(kVirtualNodeNamePrefix));
 

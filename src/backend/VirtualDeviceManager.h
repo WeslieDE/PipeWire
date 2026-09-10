@@ -31,6 +31,13 @@ public:
 
     QStringList activeHandles() const;
 
+signals:
+    // Für AutoReconnectManager, um neu erzeugte virtuelle Geräte (egal ob aus
+    // Session-Wiederherstellung oder späterer Nutzeraktion) in die Session
+    // aufzunehmen.
+    void deviceCreated(const QString &handleId, const QString &displayName);
+    void deviceRemoved(const QString &handleId);
+
 private:
     PipeWireEngine *m_engine;
     QMap<QString, struct pw_impl_module *> m_modules;

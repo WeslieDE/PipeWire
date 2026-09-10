@@ -3,6 +3,8 @@
 #include <QObject>
 #include <QString>
 
+#include <functional>
+
 #include <pipewire/pipewire.h>
 
 class AudioGraph;
@@ -28,6 +30,12 @@ public:
     void stop();
 
     struct pw_core *core() const { return m_core; }
+    struct pw_registry *registry() const { return m_registry; }
+
+    // Führt fn() mit gehaltenem pw_thread_loop-Lock aus. Muss für jeden Aufruf
+    // einer PipeWire-Funktion verwendet werden, der von außerhalb des
+    // PipeWire-Threads kommt (z.B. Link-/Volume-Änderungen vom Qt-Main-Thread).
+    void runLocked(const std::function<void()> &fn);
 
 private:
     static void onGlobalAdded(void *data, uint32_t id, uint32_t permissions,

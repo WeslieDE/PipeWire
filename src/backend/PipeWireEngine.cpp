@@ -101,6 +101,20 @@ bool PipeWireEngine::start()
         return false;
     }
 
+    // Fehler vom Server (z.B. eine fehlgeschlagene Link-Erstellung) landen sonst
+    // nirgends; bis GraphBridge (M7) sie an die UI weiterreicht, wenigstens auf
+    // stderr sichtbar machen.
+    static struct spa_hook coreErrorListener {};
+    static const struct pw_core_events coreEvents = {
+        .version = PW_VERSION_CORE_EVENTS,
+        .error = [](void *, uint32_t id, int seq, int res, const char *message) {
+            fprintf(stderr, "PipeWireEngine: core error id=%u seq=%d res=%d msg=%s\n", id, seq,
+                    res, message);
+        },
+    };
+    spa_zero(coreErrorListener);
+    pw_core_add_listener(m_core, &coreErrorListener, &coreEvents, this);
+
     m_registry = pw_core_get_registry(m_core, PW_VERSION_REGISTRY, 0);
 
     static const struct pw_registry_events registryEvents = {
@@ -148,6 +162,16 @@ void PipeWireEngine::stop()
     pw_deinit();
 
     m_running = false;
+}
+
+void PipeWireEngine::runLocked(const std::function<void()> &fn)
+{
+    if (!m_loop) {
+        return;
+    }
+    pw_thread_loop_lock(m_loop);
+    fn();
+    pw_thread_loop_unlock(m_loop);
 }
 
 void PipeWireEngine::onGlobalAdded(void *data, uint32_t id, uint32_t /*permissions*/,

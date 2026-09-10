@@ -16,6 +16,10 @@ add_executable(mixpipe
     src/main.cpp
     src/ui/MainWindow.cpp
     src/ui/MainWindow.h
+    src/backend/AudioGraph.cpp
+    src/backend/AudioGraph.h
+    src/backend/PipeWireEngine.cpp
+    src/backend/PipeWireEngine.h
     resources.qrc
 )
 

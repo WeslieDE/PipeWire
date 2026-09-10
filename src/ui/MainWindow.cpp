@@ -8,6 +8,7 @@
 #include "backend/VolumeController.h"
 #include "bridge/GraphBridge.h"
 
+#include <QColor>
 #include <QWebChannel>
 #include <QWebEngineView>
 
@@ -29,6 +30,12 @@ MainWindow::MainWindow(QWidget *parent)
 {
     setWindowTitle(QStringLiteral("MixPipe"));
     resize(1440, 820);
+
+    // QWebEngineView paints white by default until the page has loaded and
+    // painted its own (dark) body background - noticeable here since
+    // PipeWireEngine::start() below runs before load() even begins. Match
+    // web/tokens.css' --color-paper so there is no white flash.
+    m_webView->page()->setBackgroundColor(QColor(0x0f, 0x10, 0x14));
 
     if (!m_engine->start()) {
         fprintf(stderr, "MainWindow: PipeWireEngine::start() fehlgeschlagen - läuft kein "

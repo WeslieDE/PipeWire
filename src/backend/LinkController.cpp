@@ -16,6 +16,46 @@ LinkController::LinkController(PipeWireEngine *engine, AudioGraph *graph, QObjec
 {
 }
 
+namespace {
+
+// Port-IDs werden in Registrierungsreihenfolge vergeben, nicht in
+// Kanalreihenfolge - ein naives Zippen nach Index kann z.B. FL mit FR
+// verbinden, sobald zwei Nodes ihre Ports in unterschiedlicher Reihenfolge
+// angemeldet haben (in der Praxis regelmäßig der Fall). Stattdessen zuerst
+// nach audio.channel (FL/FR/...) paaren, danach übrig gebliebene Ports ohne
+// eindeutiges Kanal-Match einfach der Reihe nach verbinden (deckt z.B.
+// Mono-Geräte ab, die kein "MONO"-Label auf beiden Seiten führen).
+QList<QPair<AudioPort, AudioPort>> pairPorts(QList<AudioPort> outputPorts,
+                                              QList<AudioPort> inputPorts)
+{
+    QList<QPair<AudioPort, AudioPort>> pairs;
+
+    for (int i = outputPorts.size() - 1; i >= 0; --i) {
+        if (outputPorts[i].channel.isEmpty()) {
+            continue;
+        }
+        const int j = std::find_if(inputPorts.begin(), inputPorts.end(),
+                                    [&](const AudioPort &p) {
+                                        return p.channel == outputPorts[i].channel;
+                                    })
+                      - inputPorts.begin();
+        if (j < inputPorts.size()) {
+            pairs.append({outputPorts[i], inputPorts[j]});
+            outputPorts.removeAt(i);
+            inputPorts.removeAt(j);
+        }
+    }
+
+    const int leftover = std::min(outputPorts.size(), inputPorts.size());
+    for (int i = 0; i < leftover; ++i) {
+        pairs.append({outputPorts[i], inputPorts[i]});
+    }
+
+    return pairs;
+}
+
+} // namespace
+
 void LinkController::createLink(uint32_t outputNodeId, uint32_t inputNodeId)
 {
     QList<AudioPort> outputPorts;
@@ -31,17 +71,17 @@ void LinkController::createLink(uint32_t outputNodeId, uint32_t inputNodeId)
         }
     }
 
-    const int pairCount = std::min(outputPorts.size(), inputPorts.size());
-    if (pairCount == 0) {
+    const auto pairs = pairPorts(outputPorts, inputPorts);
+    if (pairs.isEmpty()) {
         return;
     }
 
-    m_engine->runLocked([this, &outputPorts, &inputPorts, pairCount]() {
-        for (int i = 0; i < pairCount; ++i) {
-            const QByteArray outNodeId = QByteArray::number(outputPorts[i].nodeId);
-            const QByteArray outPortId = QByteArray::number(outputPorts[i].id);
-            const QByteArray inNodeId = QByteArray::number(inputPorts[i].nodeId);
-            const QByteArray inPortId = QByteArray::number(inputPorts[i].id);
+    m_engine->runLocked([this, &pairs]() {
+        for (const auto &pair : pairs) {
+            const QByteArray outNodeId = QByteArray::number(pair.first.nodeId);
+            const QByteArray outPortId = QByteArray::number(pair.first.id);
+            const QByteArray inNodeId = QByteArray::number(pair.second.nodeId);
+            const QByteArray inPortId = QByteArray::number(pair.second.id);
 
             struct pw_properties *props = pw_properties_new(
                 PW_KEY_LINK_OUTPUT_NODE, outNodeId.constData(), PW_KEY_LINK_OUTPUT_PORT,

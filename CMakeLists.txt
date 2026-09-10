@@ -30,6 +30,8 @@ add_executable(mixpipe
     src/backend/SessionStore.h
     src/backend/AutoReconnectManager.cpp
     src/backend/AutoReconnectManager.h
+    src/bridge/GraphBridge.cpp
+    src/bridge/GraphBridge.h
     resources.qrc
 )
 

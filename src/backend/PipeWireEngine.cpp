@@ -245,6 +245,7 @@ void PipeWireEngine::handlePortGlobal(uint32_t id, const struct spa_dict *props)
     port.id = id;
     port.name = dictValue(props, PW_KEY_PORT_NAME);
     port.isInput = dictValue(props, PW_KEY_PORT_DIRECTION) == QLatin1String("in");
+    port.channel = dictValue(props, PW_KEY_AUDIO_CHANNEL);
 
     const QString nodeIdStr = dictValue(props, PW_KEY_NODE_ID);
     bool ok = false;

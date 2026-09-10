@@ -99,4 +99,6 @@ void VolumeController::setMute(uint32_t nodeId, bool muted)
 
         pw_node_set_param(node, SPA_PARAM_Props, 0, pod);
     });
+
+    emit muteChanged(nodeId, muted);
 }

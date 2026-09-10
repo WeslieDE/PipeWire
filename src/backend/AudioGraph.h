@@ -32,6 +32,7 @@ struct AudioPort {
     uint32_t nodeId = 0;
     QString name;
     bool isInput = false;
+    QString channel; // audio.channel, z.B. "FL"/"FR"/"MONO" - leer wenn unbekannt
 };
 
 struct AudioNode {

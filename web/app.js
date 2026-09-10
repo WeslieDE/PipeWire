@@ -1,7 +1,11 @@
 (function () {
   "use strict";
 
-  const bridge = window.MixPipeBridge;
+  // window.MixPipeBridge is only guaranteed to exist once "mixpipe-bridge-ready"
+  // fires (mock.js sets it synchronously and fires immediately; the real
+  // qtbridge.js sets it after the async QWebChannel handshake completes) -
+  // see init() at the bottom of this file.
+  let bridge;
 
   const ICONS = {
     music: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6.4l10-2v9.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="16.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.5"/></svg>',
@@ -31,6 +35,21 @@
     return role.startsWith("source") ? "source" : "sink";
   }
 
+  function glyphForNode(node) {
+    if (node.glyph) return node.glyph; // mock.js nodes already carry one
+    if (node.isVirtual) return "wave";
+    switch (node.role) {
+      case "source-device":
+        return "mic";
+      case "sink-device":
+        return /headphone|headset/i.test(node.description || "") ? "headphones" : "speaker";
+      case "sink-app":
+        return "capture";
+      default:
+        return "music";
+    }
+  }
+
   function render() {
     const nodes = bridge.getNodes();
     renderColumn(sourceList, nodes.filter((n) => roleSide(n.role) === "source"), "source");
@@ -57,7 +76,11 @@
       card.dataset.nodeId = String(node.id);
       card.dataset.side = side;
       card.dataset.virtual = String(node.isVirtual);
-      card.querySelector(".card-icon").innerHTML = ICONS[node.glyph] || ICONS.wave;
+      // Real nodes appear/disappear on their own as the underlying app or
+      // device comes and goes - there's nothing to manage on them yet, so
+      // only virtual devices (created by MixPipe itself) get a menu.
+      card.querySelector(".card-menu").hidden = !node.isVirtual;
+      card.querySelector(".card-icon").innerHTML = ICONS[glyphForNode(node)] || ICONS.wave;
       card.querySelector(".card-name").textContent = node.description || node.name;
       card.querySelector(".card-tag").hidden = !node.isVirtual;
 
@@ -85,11 +108,8 @@
     const popover = card.querySelector(".card-popover");
     menuBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const nodeId = Number(card.dataset.nodeId);
-      const isVirtual = card.dataset.virtual === "true";
-      popover.innerHTML = isVirtual
-        ? '<button class="card-popover-item is-danger" data-action="delete-virtual">Delete virtual device</button>'
-        : '<button class="card-popover-item" data-action="unpin">Remove from view</button>';
+      popover.innerHTML =
+        '<button class="card-popover-item is-danger" data-action="delete-virtual">Delete virtual device</button>';
       closeAllPopovers();
       popover.hidden = !popover.hidden;
       menuBtn.setAttribute("aria-expanded", String(!popover.hidden));
@@ -99,7 +119,6 @@
       if (!action) return;
       const nodeId = Number(card.dataset.nodeId);
       if (action === "delete-virtual") bridge.removeVirtualDevice(nodeId);
-      if (action === "unpin") bridge.unpinNode(nodeId);
       popover.hidden = true;
     });
 
@@ -342,24 +361,37 @@
 
   // ---------- bridge events ----------
 
-  bridge.on("nodeAdded", render);
-  bridge.on("nodeRemoved", render);
-  bridge.on("linkAdded", () => requestAnimationFrame(drawLinks));
-  bridge.on("linkRemoved", () => requestAnimationFrame(drawLinks));
-  bridge.on("volumeChanged", ({ nodeId, volume, muted }) => {
-    const card = cardEls.get(nodeId);
-    if (!card) return;
-    if (volume !== undefined) {
-      const pct = Math.round(volume * 100);
-      const slider = card.querySelector(".volume-slider");
-      slider.value = String(pct);
-      slider.style.setProperty("--fill", pct + "%");
-      card.querySelector(".volume-value").textContent = pct + "%";
-    }
-    if (muted !== undefined) {
-      card.querySelector(".mute-btn").setAttribute("aria-pressed", String(!!muted));
-    }
-  });
+  function init() {
+    bridge = window.MixPipeBridge;
 
-  render();
+    bridge.on("nodeAdded", render);
+    bridge.on("nodeRemoved", render);
+    bridge.on("linkAdded", () => requestAnimationFrame(drawLinks));
+    bridge.on("linkRemoved", () => requestAnimationFrame(drawLinks));
+    bridge.on("volumeChanged", ({ nodeId, volume, muted }) => {
+      const card = cardEls.get(nodeId);
+      if (!card) return;
+      if (volume !== undefined) {
+        const pct = Math.round(volume * 100);
+        const slider = card.querySelector(".volume-slider");
+        slider.value = String(pct);
+        slider.style.setProperty("--fill", pct + "%");
+        card.querySelector(".volume-value").textContent = pct + "%";
+      }
+      if (muted !== undefined) {
+        card.querySelector(".mute-btn").setAttribute("aria-pressed", String(!!muted));
+      }
+    });
+
+    render();
+  }
+
+  // window.MixPipeBridge may already be ready by the time this script runs
+  // (mock.js sets it up synchronously) or not yet (qtbridge.js waits on an
+  // async QWebChannel handshake) - handle both.
+  if (window.MixPipeBridge) {
+    init();
+  } else {
+    window.addEventListener("mixpipe-bridge-ready", init, { once: true });
+  }
 })();

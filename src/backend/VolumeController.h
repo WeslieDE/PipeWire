@@ -24,8 +24,9 @@ public:
     void setMute(uint32_t nodeId, bool muted);
 
 signals:
-    // Für AutoReconnectManager, um Lautstärken sitzungsübergreifend zu merken.
+    // Für AutoReconnectManager (Persistenz) und GraphBridge (UI-Update).
     void volumeChanged(uint32_t nodeId, float linearVolume);
+    void muteChanged(uint32_t nodeId, bool muted);
 
 private slots:
     void onNodeRemoved(uint32_t nodeId);

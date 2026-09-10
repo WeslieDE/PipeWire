@@ -29,6 +29,17 @@ public:
     QString createVirtualDevice(const QString &displayName);
     void removeVirtualDevice(const QString &handleId);
 
+    // Legt (falls noch nicht geschehen) das interne, unsichtbare
+    // Silent-Fallback-Gerät an (siehe SilentFallbackManager) - fester Handle
+    // statt Zähler-basiert (es gibt genau eins), Präfix
+    // kInternalNodeNamePrefix statt kVirtualNodeNamePrefix (damit
+    // AudioNode::isVirtual dafür false bleibt und es so nirgends in der UI
+    // auftaucht), und absichtlich OHNE deviceCreated-Signal, damit
+    // AutoReconnectManager es nicht in die Session aufnimmt. Lebenszyklus
+    // (Zerstörung beim Beenden von MixPipe) läuft trotzdem ganz normal über
+    // m_modules/den Destruktor.
+    QString ensureFallbackDevice();
+
     QStringList activeHandles() const;
 
 signals:
@@ -39,6 +50,9 @@ signals:
     void deviceRemoved(const QString &handleId);
 
 private:
+    QString loadLoopbackDevice(const QString &handleId, const QString &displayName,
+                                bool announce = true);
+
     PipeWireEngine *m_engine;
     QMap<QString, struct pw_impl_module *> m_modules;
     int m_counter = 0;

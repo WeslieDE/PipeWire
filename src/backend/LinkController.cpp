@@ -58,6 +58,18 @@ QList<QPair<AudioPort, AudioPort>> pairPorts(QList<AudioPort> outputPorts,
 
 void LinkController::createLink(uint32_t outputNodeId, uint32_t inputNodeId)
 {
+    if (doCreateLink(outputNodeId, inputNodeId)) {
+        emit linkRequested(outputNodeId, inputNodeId);
+    }
+}
+
+bool LinkController::createLinkSilent(uint32_t outputNodeId, uint32_t inputNodeId)
+{
+    return doCreateLink(outputNodeId, inputNodeId);
+}
+
+bool LinkController::doCreateLink(uint32_t outputNodeId, uint32_t inputNodeId)
+{
     QList<AudioPort> outputPorts;
     for (const AudioPort &p : m_graph->portsForNode(outputNodeId)) {
         if (!p.isInput) {
@@ -73,7 +85,7 @@ void LinkController::createLink(uint32_t outputNodeId, uint32_t inputNodeId)
 
     const auto pairs = pairPorts(outputPorts, inputPorts);
     if (pairs.isEmpty()) {
-        return;
+        return false;
     }
 
     m_engine->runLocked([this, &pairs]() {
@@ -99,7 +111,7 @@ void LinkController::createLink(uint32_t outputNodeId, uint32_t inputNodeId)
         }
     });
 
-    emit linkRequested(outputNodeId, inputNodeId);
+    return true;
 }
 
 void LinkController::removeLink(uint32_t linkId)

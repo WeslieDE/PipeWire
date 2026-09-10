@@ -10,6 +10,7 @@ class LinkController;
 class VolumeController;
 class VirtualDeviceManager;
 class AutoReconnectManager;
+class SilentFallbackManager;
 class GraphBridge;
 
 class MainWindow : public QMainWindow {
@@ -33,5 +34,6 @@ private:
     VolumeController *m_volumeController;
     VirtualDeviceManager *m_virtualDevices;
     AutoReconnectManager *m_autoReconnect;
+    SilentFallbackManager *m_silentFallback;
     GraphBridge *m_bridge;
 };

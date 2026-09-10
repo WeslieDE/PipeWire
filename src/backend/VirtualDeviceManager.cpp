@@ -18,6 +18,8 @@ QString escapeForModuleArgs(const QString &text)
     return out;
 }
 
+constexpr const char *kFallbackHandleId = "mixpipe_internal_fallback";
+
 } // namespace
 
 VirtualDeviceManager::VirtualDeviceManager(PipeWireEngine *engine, QObject *parent)
@@ -39,6 +41,22 @@ QString VirtualDeviceManager::createVirtualDevice(const QString &displayName)
 {
     const QString handleId
         = QStringLiteral("%1%2").arg(QLatin1String(kVirtualNodeNamePrefix)).arg(++m_counter);
+    return loadLoopbackDevice(handleId, displayName);
+}
+
+QString VirtualDeviceManager::ensureFallbackDevice()
+{
+    const QString handleId = QLatin1String(kFallbackHandleId);
+    if (m_modules.contains(handleId)) {
+        return handleId;
+    }
+    return loadLoopbackDevice(handleId, QStringLiteral("MixPipe Silent Fallback"),
+                               /*announce=*/false);
+}
+
+QString VirtualDeviceManager::loadLoopbackDevice(const QString &handleId,
+                                                  const QString &displayName, bool announce)
+{
     const QString escapedName = escapeForModuleArgs(displayName);
 
     // capture.props = das, was MixPipe (und Apps, die "in" das virtuelle
@@ -72,7 +90,9 @@ QString VirtualDeviceManager::createVirtualDevice(const QString &displayName)
     }
 
     m_modules.insert(handleId, module);
-    emit deviceCreated(handleId, displayName);
+    if (announce) {
+        emit deviceCreated(handleId, displayName);
+    }
     return handleId;
 }
 

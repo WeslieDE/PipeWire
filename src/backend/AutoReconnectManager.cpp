@@ -146,6 +146,10 @@ void AutoReconnectManager::setPinned(const NodeIdentity &identity, bool pinned)
     // davon ab, wie der Nutzer/das System ihn schließt - lieber gar nicht auf
     // einen späteren Flush verlassen.
     flushPendingSave();
+
+    if (pinned) {
+        emit nodePinned(identity);
+    }
 }
 
 void AutoReconnectManager::onNodeAdded(const AudioNode &node)

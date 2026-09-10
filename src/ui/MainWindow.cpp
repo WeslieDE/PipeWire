@@ -4,6 +4,7 @@
 #include "backend/AutoReconnectManager.h"
 #include "backend/LinkController.h"
 #include "backend/PipeWireEngine.h"
+#include "backend/SilentFallbackManager.h"
 #include "backend/VirtualDeviceManager.h"
 #include "backend/VolumeController.h"
 #include "bridge/GraphBridge.h"
@@ -25,6 +26,8 @@ MainWindow::MainWindow(QWidget *parent)
     , m_virtualDevices(new VirtualDeviceManager(m_engine, this))
     , m_autoReconnect(new AutoReconnectManager(m_graph, m_linkController, m_volumeController,
                                                 m_virtualDevices, this))
+    , m_silentFallback(new SilentFallbackManager(m_graph, m_linkController, m_virtualDevices,
+                                                  m_autoReconnect, this))
     , m_bridge(new GraphBridge(m_graph, m_linkController, m_volumeController, m_virtualDevices,
                                 m_autoReconnect, this))
 {
@@ -42,6 +45,7 @@ MainWindow::MainWindow(QWidget *parent)
                          "PipeWire-Dienst?\n");
     } else {
         m_autoReconnect->restoreSession();
+        m_silentFallback->start();
     }
 
     m_webChannel->registerObject(QStringLiteral("graphBridge"), m_bridge);
@@ -66,4 +70,5 @@ MainWindow::~MainWindow()
     // einfach Stille übrig bleibt (siehe restoreDefaultRoutingBeforeShutdown).
     m_autoReconnect->restoreDefaultRoutingBeforeShutdown(m_engine->defaultSinkName(),
                                                            m_engine->defaultSourceName());
+    m_silentFallback->beforeShutdown(m_engine->defaultSinkName());
 }

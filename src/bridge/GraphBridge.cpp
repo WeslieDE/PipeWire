@@ -38,6 +38,13 @@ bool roleMatchesSide(NodeRole role, const QString &side)
 
 } // namespace
 
+bool GraphBridge::isInternalLink(const AudioLink &link) const
+{
+    const auto outputNode = m_graph->node(link.outputNodeId);
+    const auto inputNode = m_graph->node(link.inputNodeId);
+    return (outputNode && outputNode->isInternal) || (inputNode && inputNode->isInternal);
+}
+
 GraphBridge::GraphBridge(AudioGraph *graph, LinkController *linkController,
                           VolumeController *volumeController,
                           VirtualDeviceManager *virtualDevices,
@@ -50,6 +57,9 @@ GraphBridge::GraphBridge(AudioGraph *graph, LinkController *linkController,
     , m_autoReconnect(autoReconnect)
 {
     connect(graph, &AudioGraph::nodeAdded, this, [this](const AudioNode &node) {
+        if (node.isInternal) {
+            return; // Implementierungsdetail (Silent-Fallback), nie in der UI zeigen.
+        }
         if (node.isVirtual || m_autoReconnect->isPinned(identityForNode(node))) {
             emit nodeAdded(toVariant(node));
         }
@@ -59,10 +69,18 @@ GraphBridge::GraphBridge(AudioGraph *graph, LinkController *linkController,
         m_muted.remove(id);
         emit nodeRemoved(id);
     });
-    connect(graph, &AudioGraph::linkAdded, this,
-            [this](const AudioLink &link) { emit linkAdded(toVariant(link)); });
-    connect(graph, &AudioGraph::linkRemoved, this,
-            [this](const AudioLink &link) { emit linkRemoved(toVariant(link)); });
+    connect(graph, &AudioGraph::linkAdded, this, [this](const AudioLink &link) {
+        if (isInternalLink(link)) {
+            return;
+        }
+        emit linkAdded(toVariant(link));
+    });
+    connect(graph, &AudioGraph::linkRemoved, this, [this](const AudioLink &link) {
+        if (isInternalLink(link)) {
+            return;
+        }
+        emit linkRemoved(toVariant(link));
+    });
 
     connect(volumeController, &VolumeController::volumeChanged, this,
             [this](uint32_t nodeId, float volume) {
@@ -109,6 +127,9 @@ QVariantList GraphBridge::getNodes() const
 {
     QVariantList list;
     for (const AudioNode &node : m_graph->nodes()) {
+        if (node.isInternal) {
+            continue;
+        }
         if (node.isVirtual || m_autoReconnect->isPinned(identityForNode(node))) {
             list.append(toVariant(node));
         }
@@ -120,6 +141,9 @@ QVariantList GraphBridge::getLinks() const
 {
     QVariantList list;
     for (const AudioLink &link : m_graph->links()) {
+        if (isInternalLink(link)) {
+            continue;
+        }
         list.append(toVariant(link));
     }
     return list;
@@ -129,8 +153,8 @@ QVariantList GraphBridge::getAvailableNodes(const QString &side) const
 {
     QVariantList list;
     for (const AudioNode &node : m_graph->nodes()) {
-        if (node.isVirtual) {
-            continue; // virtuelle Geräte sind nie "hinzufügbar", nur löschbar
+        if (node.isVirtual || node.isInternal) {
+            continue; // virtuelle Geräte sind nie "hinzufügbar", nur löschbar; Internas gar nicht sichtbar
         }
         if (!roleMatchesSide(node.role, side)) {
             continue;

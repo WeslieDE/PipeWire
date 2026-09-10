@@ -56,6 +56,12 @@ public:
     // der Timer nie mehr feuert.
     void flushPendingSave();
 
+signals:
+    // Für SilentFallbackManager: sofort wenn ein Node angeheftet wird (nicht
+    // erst wenn er als nächstes neu im Graphen auftaucht) - der Node existiert
+    // beim Anheften ja bereits.
+    void nodePinned(const NodeIdentity &identity);
+
 private slots:
     void onNodeAdded(const AudioNode &node);
     void onPortAdded(const AudioPort &port);

@@ -27,6 +27,13 @@ bool isSinkRole(NodeRole role);
 // AudioNode::isVirtual zu setzen.
 inline constexpr const char *kVirtualNodeNamePrefix = "mixpipe_virtual_";
 
+// Namenspräfix des internen, unsichtbaren Silent-Fallback-Geräts (siehe
+// SilentFallbackManager) - bewusst ein eigenes Präfix statt
+// kVirtualNodeNamePrefix, damit dieses Gerät NICHT als AudioNode::isVirtual
+// gilt und so nirgends in der UI (Node-Liste, "Hinzufügen"-Dropdown)
+// auftaucht.
+inline constexpr const char *kInternalNodeNamePrefix = "mixpipe_internal_";
+
 struct AudioPort {
     uint32_t id = 0;
     uint32_t nodeId = 0;
@@ -44,6 +51,9 @@ struct AudioNode {
     QString processBinary; // application.process.binary, stabiler als appName
     QString iconName;     // application.icon-name, falls vorhanden
     bool isVirtual = false; // von MixPipe selbst angelegt (VirtualDeviceManager)
+    // Internes Implementierungsdetail (Silent-Fallback-Gerät, siehe
+    // SilentFallbackManager) - nie in der UI anzeigen, nie anheftbar.
+    bool isInternal = false;
 };
 
 // Sitzungsübergreifend stabile Identität eines Nodes (PipeWire-IDs wechseln

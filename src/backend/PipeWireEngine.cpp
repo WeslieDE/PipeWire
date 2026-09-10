@@ -238,6 +238,7 @@ void PipeWireEngine::handleNodeGlobal(uint32_t id, const struct spa_dict *props)
     node.processBinary = dictValue(props, PW_KEY_APP_PROCESS_BINARY);
     node.iconName = dictValue(props, PW_KEY_APP_ICON_NAME);
     node.isVirtual = node.name.startsWith(QLatin1String(kVirtualNodeNamePrefix));
+    node.isInternal = node.name.startsWith(QLatin1String(kInternalNodeNamePrefix));
 
     if (node.role == NodeRole::Unknown) {
         // Kein Audio-Node (z.B. Video), für MixPipe irrelevant.

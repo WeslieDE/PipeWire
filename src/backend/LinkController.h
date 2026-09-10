@@ -22,6 +22,14 @@ public:
 
     void createLink(uint32_t outputNodeId, uint32_t inputNodeId);
 
+    // Wie createLink(), aber ohne linkRequested-Signal - für vom
+    // SilentFallbackManager intern hergestellte Ausweich-Verbindungen, die
+    // NICHT in der Session persistiert werden sollen (siehe dort). Gibt
+    // zurück, ob tatsächlich passende Ports gefunden und pw_link-Objekte
+    // angefordert wurden (false z.B. wenn einer der Nodes noch keine Ports
+    // registriert hat - dann muss der Aufrufer es später erneut versuchen).
+    bool createLinkSilent(uint32_t outputNodeId, uint32_t inputNodeId);
+
     // Löst genau den einen pw_link mit dieser globalen id.
     void removeLink(uint32_t linkId);
 
@@ -36,6 +44,11 @@ signals:
     void linkRequested(uint32_t outputNodeId, uint32_t inputNodeId);
 
 private:
+    // Gemeinsame Implementierung von createLink()/createLinkSilent() - true,
+    // wenn tatsächlich passende Ports gefunden und pw_link-Objekte angefordert
+    // wurden (false z.B. wenn einer der Nodes noch keine Ports hat).
+    bool doCreateLink(uint32_t outputNodeId, uint32_t inputNodeId);
+
     PipeWireEngine *m_engine;
     AudioGraph *m_graph;
 };

@@ -61,6 +61,10 @@ signals:
 private:
     QVariantMap toVariant(const AudioNode &node) const;
     QVariantMap toVariant(const AudioLink &link) const;
+    // Verweist ein Link-Ende auf das interne Silent-Fallback-Gerät (siehe
+    // SilentFallbackManager)? Solche Links sind ein reines
+    // Implementierungsdetail und dürfen nie an die UI durchgereicht werden.
+    bool isInternalLink(const AudioLink &link) const;
 
     AudioGraph *m_graph;
     LinkController *m_linkController;

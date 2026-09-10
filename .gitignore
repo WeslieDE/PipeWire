@@ -1,0 +1,28 @@
+# Build output
+build/
+build-*/
+*.o
+*.obj
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Packaging tools (downloaded at build time, not vendored)
+packaging/tools/
+*.AppImage
+*.AppDir/
+
+# Referenz-Screenshots eines fremden, kommerziellen Produkts (MixLine) — nur lokale
+# Inspiration, nicht fürs (potenziell öffentliche) Repo gedacht
+MixLine Bilder/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Session data written at runtime (not project config)
+mixpipe-session.json

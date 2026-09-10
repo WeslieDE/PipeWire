@@ -4,8 +4,11 @@
   // window.MixPipeBridge is only guaranteed to exist once "mixpipe-bridge-ready"
   // fires (mock.js sets it synchronously and fires immediately; the real
   // qtbridge.js sets it after the async QWebChannel handshake completes) -
-  // see init() at the bottom of this file.
-  let bridge;
+  // see init() at the bottom of this file. Until then, `bridge` is this inert
+  // stub so that an early event (e.g. the native window's initial resize,
+  // which can reach the page before the handshake finishes) can't crash by
+  // calling into an undefined bridge.
+  let bridge = { getNodes: () => [], getLinks: () => [], getAvailableNodes: () => [], on: () => {} };
 
   const ICONS = {
     music: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6.4l10-2v9.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="16.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.5"/></svg>',

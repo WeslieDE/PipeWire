@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=MixPipe
+Comment=Node-based audio router for PipeWire
+Exec=mixpipe
+Icon=mixpipe
+Categories=AudioVideo;Audio;Mixer;
+Terminal=false

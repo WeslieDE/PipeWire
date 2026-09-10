@@ -21,6 +21,11 @@ enum class NodeRole {
 bool isSourceRole(NodeRole role);
 bool isSinkRole(NodeRole role);
 
+// Namenspräfix für node.name virtueller, von MixPipe selbst angelegter
+// Geräte (siehe VirtualDeviceManager). Wird von PipeWireEngine genutzt, um
+// AudioNode::isVirtual zu setzen.
+inline constexpr const char *kVirtualNodeNamePrefix = "mixpipe_virtual_";
+
 struct AudioPort {
     uint32_t id = 0;
     uint32_t nodeId = 0;

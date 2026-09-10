@@ -30,6 +30,7 @@ public:
     void stop();
 
     struct pw_core *core() const { return m_core; }
+    struct pw_context *context() const { return m_context; }
     struct pw_registry *registry() const { return m_registry; }
 
     // Führt fn() mit gehaltenem pw_thread_loop-Lock aus. Muss für jeden Aufruf

@@ -24,6 +24,8 @@ add_executable(mixpipe
     src/backend/LinkController.h
     src/backend/VolumeController.cpp
     src/backend/VolumeController.h
+    src/backend/VirtualDeviceManager.cpp
+    src/backend/VirtualDeviceManager.h
     resources.qrc
 )
 

@@ -46,8 +46,16 @@ QString VirtualDeviceManager::createVirtualDevice(const QString &displayName)
     // playback.props = die dazu gekoppelte Audio/Source, die z.B. in Discords
     // Mikrofon-Auswahl auftaucht - bewusst ohne target.object, damit sie sich
     // nicht automatisch irgendwohin verbindet.
+    //
+    // audio.rate/channels/position explizit setzen: ohne festes Format bleibt
+    // der Node bis zur ersten Verbindung "suspended" ohne verhandeltes
+    // Format - Apps, die (wie die meisten, z.B. Discord/Browser) Geräte über
+    // die PulseAudio-Kompatibilitätsschicht auflisten, sehen ihn dann
+    // schlicht nicht in ihrer Mikrofon-/Geräteauswahl (pactl/pipewire-pulse
+    // braucht ein bekanntes Format, um das Gerät überhaupt zu melden).
     const QString args
         = QStringLiteral("{ node.description = \"%1\" "
+                          "audio.rate = 48000 audio.channels = 2 audio.position = [ FL FR ] "
                           "capture.props = { node.name = \"%2_sink\" media.class = \"Audio/Sink\" } "
                           "playback.props = { node.name = \"%2_source\" media.class = \"Audio/Source\" } }")
               .arg(escapedName, handleId);

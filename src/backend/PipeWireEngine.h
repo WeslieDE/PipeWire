@@ -33,20 +33,33 @@ public:
     struct pw_context *context() const { return m_context; }
     struct pw_registry *registry() const { return m_registry; }
 
+    // node.name des aktuell im System eingestellten Standard-Ausgabe-/
+    // Eingabegeräts (aus dem "default"-Metadata-Objekt). Nur vom Qt-Main-
+    // Thread aus lesen - wird ausschließlich dort geschrieben (siehe .cpp).
+    QString defaultSinkName() const { return m_defaultSinkName; }
+    QString defaultSourceName() const { return m_defaultSourceName; }
+
     // Führt fn() mit gehaltenem pw_thread_loop-Lock aus. Muss für jeden Aufruf
     // einer PipeWire-Funktion verwendet werden, der von außerhalb des
     // PipeWire-Threads kommt (z.B. Link-/Volume-Änderungen vom Qt-Main-Thread).
     void runLocked(const std::function<void()> &fn);
+
+signals:
+    void defaultSinkChanged(const QString &nodeName);
+    void defaultSourceChanged(const QString &nodeName);
 
 private:
     static void onGlobalAdded(void *data, uint32_t id, uint32_t permissions,
                                const char *type, uint32_t version,
                                const struct spa_dict *props);
     static void onGlobalRemoved(void *data, uint32_t id);
+    static int onDefaultMetadataProperty(void *data, uint32_t subject, const char *key,
+                                          const char *type, const char *value);
 
     void handleNodeGlobal(uint32_t id, const struct spa_dict *props);
     void handlePortGlobal(uint32_t id, const struct spa_dict *props);
     void handleLinkGlobal(uint32_t id, const struct spa_dict *props);
+    void handleMetadataGlobal(uint32_t id, const struct spa_dict *props);
 
     AudioGraph *m_graph;
 
@@ -55,6 +68,11 @@ private:
     struct pw_core *m_core = nullptr;
     struct pw_registry *m_registry = nullptr;
     struct spa_hook m_registryListener {};
+
+    struct pw_metadata *m_defaultMetadata = nullptr;
+    struct spa_hook m_defaultMetadataListener {};
+    QString m_defaultSinkName;
+    QString m_defaultSourceName;
 
     bool m_running = false;
 };

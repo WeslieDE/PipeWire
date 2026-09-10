@@ -2,9 +2,13 @@
 
 #include "AudioGraph.h"
 
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMetaObject>
 
 #include <cstdio>
+
+#include <pipewire/extensions/metadata.h>
 
 // Wichtig: In diesem Modul (insb. in den statischen Callbacks, die vom
 // PipeWire-eigenen pw_thread_loop-Thread aus aufgerufen werden) bewusst KEIN
@@ -142,6 +146,10 @@ void PipeWireEngine::stop()
         pw_thread_loop_stop(m_loop);
     }
 
+    if (m_defaultMetadata) {
+        pw_proxy_destroy(reinterpret_cast<struct pw_proxy *>(m_defaultMetadata));
+        m_defaultMetadata = nullptr;
+    }
     if (m_registry) {
         pw_proxy_destroy(reinterpret_cast<struct pw_proxy *>(m_registry));
         m_registry = nullptr;
@@ -187,6 +195,8 @@ void PipeWireEngine::onGlobalAdded(void *data, uint32_t id, uint32_t /*permissio
         self->handlePortGlobal(id, props);
     } else if (typeStr == QLatin1String(PW_TYPE_INTERFACE_Link)) {
         self->handleLinkGlobal(id, props);
+    } else if (typeStr == QLatin1String(PW_TYPE_INTERFACE_Metadata)) {
+        self->handleMetadataGlobal(id, props);
     }
 }
 
@@ -285,4 +295,62 @@ void PipeWireEngine::handleLinkGlobal(uint32_t id, const struct spa_dict *props)
     AudioGraph *graph = m_graph;
     QMetaObject::invokeMethod(
         graph, [graph, link]() { graph->upsertLink(link); }, Qt::QueuedConnection);
+}
+
+void PipeWireEngine::handleMetadataGlobal(uint32_t id, const struct spa_dict *props)
+{
+    // Es gibt mehrere Metadata-Objekte (default, settings, route-settings,
+    // ...) - uns interessiert nur das mit metadata.name == "default", das
+    // hält u.a. default.audio.sink/-source.
+    if (dictValue(props, PW_KEY_METADATA_NAME) != QLatin1String("default")) {
+        return;
+    }
+
+    m_defaultMetadata = static_cast<struct pw_metadata *>(
+        pw_registry_bind(m_registry, id, PW_TYPE_INTERFACE_Metadata, PW_VERSION_METADATA, 0));
+    if (!m_defaultMetadata) {
+        return;
+    }
+
+    static const struct pw_metadata_events metadataEvents = {
+        .version = PW_VERSION_METADATA_EVENTS,
+        .property = &PipeWireEngine::onDefaultMetadataProperty,
+    };
+    spa_zero(m_defaultMetadataListener);
+    pw_metadata_add_listener(m_defaultMetadata, &m_defaultMetadataListener, &metadataEvents,
+                              this);
+}
+
+int PipeWireEngine::onDefaultMetadataProperty(void *data, uint32_t /*subject*/, const char *key,
+                                               const char * /*type*/, const char *value)
+{
+    if (!key || !value) {
+        return 0;
+    }
+    const QString keyStr = QString::fromUtf8(key);
+    const bool isSink = keyStr == QLatin1String("default.audio.sink");
+    const bool isSource = keyStr == QLatin1String("default.audio.source");
+    if (!isSink && !isSource) {
+        return 0;
+    }
+
+    auto *self = static_cast<PipeWireEngine *>(data);
+    const QByteArray valueBytes(value);
+
+    QMetaObject::invokeMethod(
+        self,
+        [self, valueBytes, isSink]() {
+            const QJsonDocument doc = QJsonDocument::fromJson(valueBytes);
+            const QString nodeName = doc.object().value(QStringLiteral("name")).toString();
+            if (isSink) {
+                self->m_defaultSinkName = nodeName;
+                emit self->defaultSinkChanged(nodeName);
+            } else {
+                self->m_defaultSourceName = nodeName;
+                emit self->defaultSourceChanged(nodeName);
+            }
+        },
+        Qt::QueuedConnection);
+
+    return 0;
 }

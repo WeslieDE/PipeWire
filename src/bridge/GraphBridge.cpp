@@ -1,6 +1,7 @@
 #include "GraphBridge.h"
 
 #include "backend/AudioGraph.h"
+#include "backend/AutoReconnectManager.h"
 #include "backend/LinkController.h"
 #include "backend/VirtualDeviceManager.h"
 #include "backend/VolumeController.h"
@@ -24,19 +25,35 @@ QString roleString(NodeRole role)
     return QStringLiteral("unknown");
 }
 
+bool roleMatchesSide(NodeRole role, const QString &side)
+{
+    if (side == QLatin1String("source")) {
+        return isSourceRole(role);
+    }
+    if (side == QLatin1String("sink")) {
+        return isSinkRole(role);
+    }
+    return false;
+}
+
 } // namespace
 
 GraphBridge::GraphBridge(AudioGraph *graph, LinkController *linkController,
                           VolumeController *volumeController,
-                          VirtualDeviceManager *virtualDevices, QObject *parent)
+                          VirtualDeviceManager *virtualDevices,
+                          AutoReconnectManager *autoReconnect, QObject *parent)
     : QObject(parent)
     , m_graph(graph)
     , m_linkController(linkController)
     , m_volumeController(volumeController)
     , m_virtualDevices(virtualDevices)
+    , m_autoReconnect(autoReconnect)
 {
-    connect(graph, &AudioGraph::nodeAdded, this,
-            [this](const AudioNode &node) { emit nodeAdded(toVariant(node)); });
+    connect(graph, &AudioGraph::nodeAdded, this, [this](const AudioNode &node) {
+        if (node.isVirtual || m_autoReconnect->isPinned(identityForNode(node))) {
+            emit nodeAdded(toVariant(node));
+        }
+    });
     connect(graph, &AudioGraph::nodeRemoved, this, [this](uint32_t id) {
         m_volumes.remove(id);
         m_muted.remove(id);
@@ -92,7 +109,9 @@ QVariantList GraphBridge::getNodes() const
 {
     QVariantList list;
     for (const AudioNode &node : m_graph->nodes()) {
-        list.append(toVariant(node));
+        if (node.isVirtual || m_autoReconnect->isPinned(identityForNode(node))) {
+            list.append(toVariant(node));
+        }
     }
     return list;
 }
@@ -106,12 +125,22 @@ QVariantList GraphBridge::getLinks() const
     return list;
 }
 
-QVariantList GraphBridge::getAvailableNodes(const QString & /*side*/) const
+QVariantList GraphBridge::getAvailableNodes(const QString &side) const
 {
-    // Siehe Header: Sichtbarkeits-Kuration ist (noch) nicht umgesetzt, alle
-    // Nodes erscheinen automatisch. Leere Liste hier bedeutet für
-    // web/app.js einfach "nichts Neues zum Hinzufügen".
-    return {};
+    QVariantList list;
+    for (const AudioNode &node : m_graph->nodes()) {
+        if (node.isVirtual) {
+            continue; // virtuelle Geräte sind nie "hinzufügbar", nur löschbar
+        }
+        if (!roleMatchesSide(node.role, side)) {
+            continue;
+        }
+        if (m_autoReconnect->isPinned(identityForNode(node))) {
+            continue;
+        }
+        list.append(toVariant(node));
+    }
+    return list;
 }
 
 void GraphBridge::createLink(quint32 outputNodeId, quint32 inputNodeId)
@@ -150,4 +179,32 @@ void GraphBridge::removeVirtualDevice(quint32 nodeId)
         return;
     }
     m_virtualDevices->removeVirtualDevice(identity.key);
+}
+
+void GraphBridge::pinNode(quint32 nodeId)
+{
+    const auto node = m_graph->node(nodeId);
+    if (!node || node->isVirtual) {
+        return;
+    }
+    const NodeIdentity identity = identityForNode(*node);
+    if (!identity.isValid() || m_autoReconnect->isPinned(identity)) {
+        return;
+    }
+    m_autoReconnect->setPinned(identity, true);
+    emit nodeAdded(toVariant(*node));
+}
+
+void GraphBridge::unpinNode(quint32 nodeId)
+{
+    const auto node = m_graph->node(nodeId);
+    if (!node || node->isVirtual) {
+        return;
+    }
+    const NodeIdentity identity = identityForNode(*node);
+    if (!identity.isValid()) {
+        return;
+    }
+    m_autoReconnect->setPinned(identity, false);
+    emit nodeRemoved(nodeId);
 }

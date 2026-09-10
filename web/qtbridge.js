@@ -43,7 +43,7 @@
 
     window.MixPipeBridge = {
       getNodes: () => [...nodesById.values()],
-      getAvailableNodes: () => [],
+      getAvailableNodes: (side, callback) => backend.getAvailableNodes(side, callback),
       getLinks: () => [...linksById.values()],
       createLink: (outputNodeId, inputNodeId) => backend.createLink(outputNodeId, inputNodeId),
       removeLink: (outputNodeId, inputNodeId) => backend.removeLink(outputNodeId, inputNodeId),
@@ -51,6 +51,8 @@
       setMute: (nodeId, muted) => backend.setMute(nodeId, muted),
       createVirtualDevice: (displayName) => backend.createVirtualDevice(displayName),
       removeVirtualDevice: (nodeId) => backend.removeVirtualDevice(nodeId),
+      pinNode: (nodeId) => backend.pinNode(nodeId),
+      unpinNode: (nodeId) => backend.unpinNode(nodeId),
       on: (event, cb) => {
         if (listeners[event]) listeners[event].push(cb);
       },

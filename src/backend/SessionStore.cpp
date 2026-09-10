@@ -54,6 +54,14 @@ SessionStore::Session SessionStore::load() const
         });
     }
 
+    for (const QJsonValue &v : root.value(QStringLiteral("pinnedNodes")).toArray()) {
+        const QJsonObject o = v.toObject();
+        session.pinnedNodes.append(PinnedNode{
+            o.value(QStringLiteral("kind")).toString(),
+            o.value(QStringLiteral("key")).toString(),
+        });
+    }
+
     return session;
 }
 
@@ -83,10 +91,19 @@ void SessionStore::save(const Session &session) const
         nodeVolumes.append(o);
     }
 
+    QJsonArray pinnedNodes;
+    for (const PinnedNode &p : session.pinnedNodes) {
+        QJsonObject o;
+        o[QStringLiteral("kind")] = p.kind;
+        o[QStringLiteral("key")] = p.key;
+        pinnedNodes.append(o);
+    }
+
     QJsonObject root;
     root[QStringLiteral("virtualDevices")] = virtualDevices;
     root[QStringLiteral("linkRules")] = linkRules;
     root[QStringLiteral("nodeVolumes")] = nodeVolumes;
+    root[QStringLiteral("pinnedNodes")] = pinnedNodes;
 
     QFile file(filePath());
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {

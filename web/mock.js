@@ -55,9 +55,11 @@
     getNodes() {
       return nodes.filter((n) => n.pinned).map((n) => ({ ...n }));
     },
-    getAvailableNodes(role) {
+    getAvailableNodes(role, callback) {
       const wantSource = role === "source";
-      return nodes.filter((n) => !n.pinned && (wantSource ? n.role.startsWith("source") : n.role.startsWith("sink")));
+      const result = nodes.filter((n) => !n.pinned && (wantSource ? n.role.startsWith("source") : n.role.startsWith("sink")));
+      if (callback) callback(result);
+      return result;
     },
     getLinks() {
       return links.map((l) => ({ ...l }));

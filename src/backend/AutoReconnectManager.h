@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AudioGraph.h" // für NodeIdentity
 #include "SessionStore.h"
 
 #include <QObject>
@@ -34,6 +35,27 @@ public:
     // PipeWireEngine::start() aufrufen.
     void restoreSession();
 
+    // Für Apps/Geräte, die (auch) an ein virtuelles Gerät geroutet waren:
+    // zusätzlich einmal auf das aktuelle System-Standardgerät verlinken,
+    // bevor die virtuellen Geräte beim Beenden verschwinden - sonst bleiben
+    // sie komplett stumm/taub zurück, da PipeWire einen einmal manuell
+    // umgeleiteten Stream nicht von selbst wieder auf den Standard umbiegt.
+    // Vor der Zerstörung der virtuellen Geräte aufrufen (MainWindow::~MainWindow).
+    void restoreDefaultRoutingBeforeShutdown(const QString &defaultSinkName,
+                                              const QString &defaultSourceName);
+
+    // Sichtbarkeits-Kuration: Nodes sind standardmäßig nicht sichtbar, bis
+    // sie explizit angeheftet werden (siehe GraphBridge). Zustand wird
+    // sitzungsübergreifend gespeichert.
+    bool isPinned(const NodeIdentity &identity) const;
+    void setPinned(const NodeIdentity &identity, bool pinned);
+
+    // Erzwingt einen sofortigen Speichervorgang, ohne auf den Debounce-Timer
+    // zu warten - beim Beenden aufrufen (MainWindow::~MainWindow), sonst geht
+    // eine Änderung aus den letzten <500ms vor dem Schließen verloren, weil
+    // der Timer nie mehr feuert.
+    void flushPendingSave();
+
 private slots:
     void onNodeAdded(const AudioNode &node);
     void onPortAdded(const AudioPort &port);
@@ -63,6 +85,9 @@ private:
     // Verbindungen dieser Sitzung - nur diese werden gespeichert, nicht jede
     // im System-Graph sichtbare Verbindung.
     QSet<QPair<uint32_t, uint32_t>> m_managedPairs;
+
+    // (kind, key) angehefteter Node-Identitäten.
+    QSet<QPair<QString, QString>> m_pinned;
 
     QTimer m_saveTimer;
 };

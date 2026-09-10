@@ -24,10 +24,16 @@ public:
         float volume = 1.0f;
     };
 
+    struct PinnedNode {
+        QString kind;
+        QString key;
+    };
+
     struct Session {
         QList<QString> virtualDevices; // Anzeigenamen, in Erstellungsreihenfolge
         QList<LinkRule> linkRules;
         QList<NodeVolume> nodeVolumes;
+        QList<PinnedNode> pinnedNodes;
     };
 
     Session load() const;

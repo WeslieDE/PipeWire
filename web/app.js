@@ -8,7 +8,10 @@
   // stub so that an early event (e.g. the native window's initial resize,
   // which can reach the page before the handshake finishes) can't crash by
   // calling into an undefined bridge.
-  let bridge = { getNodes: () => [], getLinks: () => [], getAvailableNodes: () => [], on: () => {} };
+  let bridge = {
+    getNodes: () => [], getLinks: () => [], getAvailableNodes: (side, cb) => cb([]),
+    pinNode: () => {}, unpinNode: () => {}, on: () => {},
+  };
 
   const ICONS = {
     music: '<svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6.4l10-2v9.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="16.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.5"/></svg>',
@@ -79,10 +82,6 @@
       card.dataset.nodeId = String(node.id);
       card.dataset.side = side;
       card.dataset.virtual = String(node.isVirtual);
-      // Real nodes appear/disappear on their own as the underlying app or
-      // device comes and goes - there's nothing to manage on them yet, so
-      // only virtual devices (created by MixPipe itself) get a menu.
-      card.querySelector(".card-menu").hidden = !node.isVirtual;
       card.querySelector(".card-icon").innerHTML = ICONS[glyphForNode(node)] || ICONS.wave;
       card.querySelector(".card-name").textContent = node.description || node.name;
       card.querySelector(".card-tag").hidden = !node.isVirtual;
@@ -111,8 +110,10 @@
     const popover = card.querySelector(".card-popover");
     menuBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      popover.innerHTML =
-        '<button class="card-popover-item is-danger" data-action="delete-virtual">Delete virtual device</button>';
+      const isVirtual = card.dataset.virtual === "true";
+      popover.innerHTML = isVirtual
+        ? '<button class="card-popover-item is-danger" data-action="delete-virtual">Delete virtual device</button>'
+        : '<button class="card-popover-item" data-action="unpin">Remove from view</button>';
       closeAllPopovers();
       popover.hidden = !popover.hidden;
       menuBtn.setAttribute("aria-expanded", String(!popover.hidden));
@@ -122,6 +123,7 @@
       if (!action) return;
       const nodeId = Number(card.dataset.nodeId);
       if (action === "delete-virtual") bridge.removeVirtualDevice(nodeId);
+      if (action === "unpin") bridge.unpinNode(nodeId);
       popover.hidden = true;
     });
 
@@ -312,46 +314,54 @@
       if (opening) openMenu();
     });
 
+    // Without this, any click inside the menu (e.g. into the new-virtual-
+    // device text field) bubbles to the document-level "click outside
+    // closes the menu" handler below and closes it immediately.
+    menu.addEventListener("click", (e) => e.stopPropagation());
+
     function openMenu() {
-      const available = bridge.getAvailableNodes(side);
-      menu.innerHTML = "";
-      if (available.length === 0) {
-        const empty = document.createElement("div");
-        empty.className = "add-menu-empty";
-        empty.textContent = "Nothing new found.";
-        menu.appendChild(empty);
-      }
-      for (const node of available) {
-        const item = document.createElement("button");
-        item.className = "add-menu-item";
-        item.type = "button";
-        item.innerHTML = `<span class="item-icon">${ICONS[node.glyph] || ICONS.wave}</span><span>${node.description || node.name}</span>`;
-        item.addEventListener("click", () => {
-          bridge.pinNode(node.id);
-          menu.hidden = true;
-          btn.setAttribute("aria-expanded", "false");
-        });
-        menu.appendChild(item);
-      }
-      if (side === "sink") {
-        const divider = document.createElement("div");
-        divider.className = "add-menu-divider";
-        menu.appendChild(divider);
-        const newWrap = document.createElement("div");
-        newWrap.className = "add-menu-new";
-        newWrap.innerHTML = '<input type="text" placeholder="Name for new virtual device…" />';
-        const input = newWrap.querySelector("input");
-        input.addEventListener("keydown", (e) => {
-          if (e.key === "Enter" && input.value.trim()) {
-            bridge.createVirtualDevice(input.value.trim());
+      // getAvailableNodes is async over QWebChannel (any bridge call with a
+      // return value is), so the menu is built once the callback fires.
+      bridge.getAvailableNodes(side, (available) => {
+        menu.innerHTML = "";
+        if (!available || available.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "add-menu-empty";
+          empty.textContent = "Nothing new found.";
+          menu.appendChild(empty);
+        }
+        for (const node of available || []) {
+          const item = document.createElement("button");
+          item.className = "add-menu-item";
+          item.type = "button";
+          item.innerHTML = `<span class="item-icon">${ICONS[glyphForNode(node)] || ICONS.wave}</span><span>${node.description || node.name}</span>`;
+          item.addEventListener("click", () => {
+            bridge.pinNode(node.id);
             menu.hidden = true;
             btn.setAttribute("aria-expanded", "false");
-          }
-        });
-        menu.appendChild(newWrap);
-      }
-      menu.hidden = false;
-      btn.setAttribute("aria-expanded", "true");
+          });
+          menu.appendChild(item);
+        }
+        if (side === "sink") {
+          const divider = document.createElement("div");
+          divider.className = "add-menu-divider";
+          menu.appendChild(divider);
+          const newWrap = document.createElement("div");
+          newWrap.className = "add-menu-new";
+          newWrap.innerHTML = '<input type="text" placeholder="Name for new virtual device…" />';
+          const input = newWrap.querySelector("input");
+          input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && input.value.trim()) {
+              bridge.createVirtualDevice(input.value.trim());
+              menu.hidden = true;
+              btn.setAttribute("aria-expanded", "false");
+            }
+          });
+          menu.appendChild(newWrap);
+        }
+        menu.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+      });
     }
   });
 

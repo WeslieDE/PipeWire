@@ -74,6 +74,9 @@ void AutoReconnectManager::restoreSession()
     const SessionStore::Session session = m_store.load();
     m_linkRules = session.linkRules;
     m_nodeVolumes = session.nodeVolumes;
+    for (const auto &p : session.pinnedNodes) {
+        m_pinned.insert({p.kind, p.key});
+    }
 
     // Reihenfolge ist wichtig: VirtualDeviceManagers interner Zähler beginnt
     // pro Sitzung wieder bei 1, dadurch entstehen bei gleicher
@@ -82,6 +85,67 @@ void AutoReconnectManager::restoreSession()
     for (const QString &displayName : session.virtualDevices) {
         m_virtualDevices->createVirtualDevice(displayName);
     }
+}
+
+void AutoReconnectManager::flushPendingSave()
+{
+    if (m_saveTimer.isActive()) {
+        m_saveTimer.stop();
+    }
+    saveNow();
+}
+
+void AutoReconnectManager::restoreDefaultRoutingBeforeShutdown(const QString &defaultSinkName,
+                                                                 const QString &defaultSourceName)
+{
+    if (defaultSinkName.isEmpty() && defaultSourceName.isEmpty()) {
+        return;
+    }
+
+    const auto defaultSink
+        = defaultSinkName.isEmpty()
+              ? std::nullopt
+              : m_graph->findByIdentity({QStringLiteral("device"), defaultSinkName});
+    const auto defaultSource
+        = defaultSourceName.isEmpty()
+              ? std::nullopt
+              : m_graph->findByIdentity({QStringLiteral("device"), defaultSourceName});
+
+    for (const auto &pair : m_managedPairs) {
+        const auto outputNode = m_graph->node(pair.first);
+        const auto inputNode = m_graph->node(pair.second);
+        if (!outputNode || !inputNode) {
+            continue;
+        }
+
+        if (inputNode->isVirtual && defaultSink && outputNode->id != defaultSink->id) {
+            m_linkController->createLink(outputNode->id, defaultSink->id);
+        }
+        if (outputNode->isVirtual && defaultSource && inputNode->id != defaultSource->id) {
+            m_linkController->createLink(defaultSource->id, inputNode->id);
+        }
+    }
+}
+
+bool AutoReconnectManager::isPinned(const NodeIdentity &identity) const
+{
+    return m_pinned.contains({identity.kind, identity.key});
+}
+
+void AutoReconnectManager::setPinned(const NodeIdentity &identity, bool pinned)
+{
+    const QPair<QString, QString> key{identity.kind, identity.key};
+    if (pinned) {
+        m_pinned.insert(key);
+    } else {
+        m_pinned.remove(key);
+    }
+    // Bewusst sofort statt debounced: ein einzelner Pin/Unpin-Klick ist kein
+    // Event, das in schneller Folge feuert (anders als z.B. Volume-Slider-
+    // Drag), und ob der Prozess sauber beendet wird (Destruktor läuft) hängt
+    // davon ab, wie der Nutzer/das System ihn schließt - lieber gar nicht auf
+    // einen späteren Flush verlassen.
+    flushPendingSave();
 }
 
 void AutoReconnectManager::onNodeAdded(const AudioNode &node)
@@ -187,6 +251,9 @@ void AutoReconnectManager::saveNow()
         session.virtualDevices.append(entry.second);
     }
     session.nodeVolumes = m_nodeVolumes;
+    for (const auto &p : m_pinned) {
+        session.pinnedNodes.append({p.first, p.second});
+    }
 
     const auto liveLinks = m_graph->nodeLinkPairs();
     for (const auto &pair : m_managedPairs) {

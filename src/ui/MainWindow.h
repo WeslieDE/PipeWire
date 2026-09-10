@@ -32,6 +32,6 @@ private:
     LinkController *m_linkController;
     VolumeController *m_volumeController;
     VirtualDeviceManager *m_virtualDevices;
-    GraphBridge *m_bridge;
     AutoReconnectManager *m_autoReconnect;
+    GraphBridge *m_bridge;
 };

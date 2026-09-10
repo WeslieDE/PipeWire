@@ -23,10 +23,10 @@ MainWindow::MainWindow(QWidget *parent)
     , m_linkController(new LinkController(m_engine, m_graph, this))
     , m_volumeController(new VolumeController(m_engine, m_graph, this))
     , m_virtualDevices(new VirtualDeviceManager(m_engine, this))
-    , m_bridge(new GraphBridge(m_graph, m_linkController, m_volumeController, m_virtualDevices,
-                                this))
     , m_autoReconnect(new AutoReconnectManager(m_graph, m_linkController, m_volumeController,
                                                 m_virtualDevices, this))
+    , m_bridge(new GraphBridge(m_graph, m_linkController, m_volumeController, m_virtualDevices,
+                                m_autoReconnect, this))
 {
     setWindowTitle(QStringLiteral("MixPipe"));
     resize(1440, 820);
@@ -51,4 +51,19 @@ MainWindow::MainWindow(QWidget *parent)
     m_webView->load(QUrl(QStringLiteral("qrc:/web/index.html")));
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    // Erst den zuletzt tatsächlich gewünschten Zustand (Pins, Lautstärken,
+    // Verbindungen) sichern, bevor gleich temporäre Ausweich-Verbindungen
+    // dazukommen, die NICHT mit gespeichert werden sollen (siehe unten) -
+    // sonst geht eine Änderung aus den letzten <500ms vor dem Schließen
+    // verloren, da der Debounce-Timer nie mehr feuert.
+    m_autoReconnect->flushPendingSave();
+
+    // Vor dem (impliziten, Qt-Parent-basierten) Abbau der virtuellen Geräte
+    // unten: Apps/Geräte, die (auch) an ein virtuelles Gerät geroutet waren,
+    // zusätzlich auf das aktuelle System-Standardgerät legen, damit nicht
+    // einfach Stille übrig bleibt (siehe restoreDefaultRoutingBeforeShutdown).
+    m_autoReconnect->restoreDefaultRoutingBeforeShutdown(m_engine->defaultSinkName(),
+                                                           m_engine->defaultSourceName());
+}

@@ -5,8 +5,6 @@
 #include "LinkController.h"
 #include "VirtualDeviceManager.h"
 
-#include <algorithm>
-
 SilentFallbackManager::SilentFallbackManager(AudioGraph *graph, LinkController *linkController,
                                               VirtualDeviceManager *virtualDevices,
                                               AutoReconnectManager *autoReconnect, QObject *parent)
@@ -28,16 +26,12 @@ SilentFallbackManager::SilentFallbackManager(AudioGraph *graph, LinkController *
     });
     connect(graph, &AudioGraph::portAdded, this, [this](const AudioPort &port) {
         // Ports registrieren sich asynchron nach ihrem Node (siehe
-        // AutoReconnectManager::onPortAdded) - bei nodeAdded hat weder eine
-        // frisch angeheftete App noch (insbesondere) unser eigenes
-        // Fallback-Sink evtl. schon Ports, createLinkSilent() wäre dort ein
-        // No-Op. Für Ports des Fallback-Sinks selbst daher alle wartenden
-        // Apps erneut versuchen statt nur den (internen, für ensureFallbackLink
-        // irrelevanten) Fallback-Node selbst.
-        if (port.nodeId == m_fallbackSinkNodeId) {
-            ensureFallbackForAllPinnedSourceApps();
-            return;
-        }
+        // AutoReconnectManager::onPortAdded) - bei nodeAdded hat eine frisch
+        // angeheftete App evtl. noch keine Ports, createLinkSilent() wäre
+        // dort ein No-Op. Das erneute Vervollständigen, sobald z.B. auch das
+        // eigene Fallback-Sink seine Ports bekommt, übernimmt
+        // LinkController::healPair() (getriggert von dessen eigenem
+        // portAdded-Listener) automatisch für jedes einmal angefragte Paar.
         const auto node = m_graph->node(port.nodeId);
         if (node) {
             ensureFallbackLink(*node);
@@ -74,46 +68,12 @@ void SilentFallbackManager::ensureFallbackLink(const AudioNode &node)
         return;
     }
 
-    // Nodes registrieren ihre Ports einzeln nacheinander (App-Seite UND -
-    // besonders zu Beginn - unser eigenes Fallback-Sink), daher zählt ein
-    // einzelner erfolgreicher LinkController-Aufruf nicht zwangsläufig schon
-    // ALLE Kanäle (z.B. nur FL, weil playback_FR beim ersten Versuch noch
-    // fehlte). AudioGraph::nodeLinkPairs() kennt nur "verbunden ja/nein" pro
-    // Node-Paar, nicht die Kanalanzahl - hier stattdessen die tatsächliche
-    // Link-Anzahl gegen die aktuell erwartbare Portanzahl vergleichen und bei
-    // Unterdeckung erneut versuchen. LinkController::createLinkSilent()
-    // berechnet die Portpaare bei jedem Aufruf neu und ist für bereits
-    // bestehende Portpaare ein harmloser (vom PipeWire-Daemon mit "Datei
-    // existiert bereits" quittierter) No-Op.
-    int outputPortCount = 0;
-    for (const AudioPort &p : m_graph->portsForNode(node.id)) {
-        if (!p.isInput) {
-            ++outputPortCount;
-        }
-    }
-    int fallbackInputPortCount = 0;
-    for (const AudioPort &p : m_graph->portsForNode(m_fallbackSinkNodeId)) {
-        if (p.isInput) {
-            ++fallbackInputPortCount;
-        }
-    }
-    const int expectedLinks = std::min(outputPortCount, fallbackInputPortCount);
-    if (expectedLinks == 0) {
-        // Eine der beiden Seiten hat noch keine Ports - wird nachgeholt,
-        // sobald der jeweilige portAdded-Trigger feuert.
-        return;
-    }
-
-    int actualLinks = 0;
-    for (const AudioLink &link : m_graph->links()) {
-        if (link.outputNodeId == node.id && link.inputNodeId == m_fallbackSinkNodeId) {
-            ++actualLinks;
-        }
-    }
-    if (actualLinks >= expectedLinks) {
-        return;
-    }
-
+    // LinkController::createLinkSilent() registriert das Paar als "soll
+    // verbunden bleiben" und vervollständigt es selbstständig, sobald weitere
+    // Ports einer der beiden Seiten auftauchen (siehe
+    // LinkController::healPair) - wiederholte Aufrufe hier sind idempotent
+    // (kein erneuter Verbindungsversuch, sobald die erwartete Kanalzahl schon
+    // erreicht ist).
     m_linkController->createLinkSilent(node.id, m_fallbackSinkNodeId);
 }
 

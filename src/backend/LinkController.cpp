@@ -14,6 +14,26 @@ LinkController::LinkController(PipeWireEngine *engine, AudioGraph *graph, QObjec
     , m_engine(engine)
     , m_graph(graph)
 {
+    connect(graph, &AudioGraph::portAdded, this, [this](const AudioPort &port) {
+        // Ein neuer Port kann Teil einer Formatneuverhandlung eines bereits
+        // verbundenen (oder gerade erst angeforderten) Nodes sein - für alle
+        // gewünschten Paare, die diesen Node betreffen, den Verbindungsstand
+        // nachziehen (siehe m_desiredPairs-Kommentar im Header).
+        for (const auto &pair : std::as_const(m_desiredPairs)) {
+            if (pair.first == port.nodeId || pair.second == port.nodeId) {
+                healPair(pair.first, pair.second);
+            }
+        }
+    });
+    connect(graph, &AudioGraph::nodeRemoved, this, [this](uint32_t id) {
+        QSet<QPair<uint32_t, uint32_t>> remaining;
+        for (const auto &pair : std::as_const(m_desiredPairs)) {
+            if (pair.first != id && pair.second != id) {
+                remaining.insert(pair);
+            }
+        }
+        m_desiredPairs = std::move(remaining);
+    });
 }
 
 namespace {
@@ -58,13 +78,53 @@ QList<QPair<AudioPort, AudioPort>> pairPorts(QList<AudioPort> outputPorts,
 
 void LinkController::createLink(uint32_t outputNodeId, uint32_t inputNodeId)
 {
-    if (doCreateLink(outputNodeId, inputNodeId)) {
+    m_desiredPairs.insert({outputNodeId, inputNodeId});
+    if (healPair(outputNodeId, inputNodeId)) {
         emit linkRequested(outputNodeId, inputNodeId);
     }
 }
 
 bool LinkController::createLinkSilent(uint32_t outputNodeId, uint32_t inputNodeId)
 {
+    m_desiredPairs.insert({outputNodeId, inputNodeId});
+    return healPair(outputNodeId, inputNodeId);
+}
+
+bool LinkController::healPair(uint32_t outputNodeId, uint32_t inputNodeId)
+{
+    // Erwartete Kanalzahl aus den AKTUELL bekannten Ports beider Seiten
+    // ableiten und mit der tatsächlich schon bestehenden Link-Anzahl
+    // vergleichen, statt blind erneut zu verbinden - sonst würde jeder
+    // erneute Aufruf (z.B. durch den portAdded-Trigger oben) auch bereits
+    // vollständig verbundene Paare erneut anfragen und nur nutzlose "Datei
+    // existiert bereits"-Fehler produzieren.
+    int outputPortCount = 0;
+    for (const AudioPort &p : m_graph->portsForNode(outputNodeId)) {
+        if (!p.isInput) {
+            ++outputPortCount;
+        }
+    }
+    int inputPortCount = 0;
+    for (const AudioPort &p : m_graph->portsForNode(inputNodeId)) {
+        if (p.isInput) {
+            ++inputPortCount;
+        }
+    }
+    const int expected = std::min(outputPortCount, inputPortCount);
+    if (expected == 0) {
+        return false;
+    }
+
+    int actual = 0;
+    for (const AudioLink &link : m_graph->links()) {
+        if (link.outputNodeId == outputNodeId && link.inputNodeId == inputNodeId) {
+            ++actual;
+        }
+    }
+    if (actual >= expected) {
+        return false;
+    }
+
     return doCreateLink(outputNodeId, inputNodeId);
 }
 
@@ -122,6 +182,12 @@ void LinkController::removeLink(uint32_t linkId)
 
 void LinkController::removeNodeLink(uint32_t outputNodeId, uint32_t inputNodeId)
 {
+    // Explizite Nutzer-Trennung überschreibt den "soll verbunden bleiben"-
+    // Wunsch - sonst würde ein späterer, unbeteiligter portAdded-Trigger
+    // (siehe m_desiredPairs-Kommentar im Header) die gerade erst getrennte
+    // Verbindung gegen den Willen des Nutzers wiederherstellen.
+    m_desiredPairs.remove({outputNodeId, inputNodeId});
+
     const auto links = m_graph->links();
     for (const AudioLink &link : links) {
         if (link.outputNodeId == outputNodeId && link.inputNodeId == inputNodeId) {

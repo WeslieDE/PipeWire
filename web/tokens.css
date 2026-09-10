@@ -1,0 +1,73 @@
+/* MixPipe design tokens. Portable — referenced by name everywhere, never inlined. */
+
+:root {
+  /* paper band: dark, faint cool undertone (not flat #000) */
+  --color-paper: oklch(15.5% 0.012 258);
+  --color-paper-2: oklch(19% 0.013 258);
+  --color-paper-3: oklch(24% 0.015 258);
+  --color-paper-4: oklch(29% 0.016 258);
+  --color-border: oklch(30% 0.014 258);
+  --color-border-strong: oklch(40% 0.016 258);
+
+  --color-ink: oklch(95% 0.004 258);
+  --color-ink-dim: oklch(72% 0.012 258);
+  --color-ink-faint: oklch(52% 0.014 258);
+
+  /* accent: warm amber — deliberately not the violet/blue every "AI tool" reaches for */
+  --color-accent: oklch(78% 0.15 68);
+  --color-accent-ink: oklch(18% 0.03 68);
+  --color-accent-dim: oklch(45% 0.09 68);
+
+  --color-danger: oklch(66% 0.18 25);
+  --color-danger-ink: oklch(97% 0.01 25);
+
+  --color-focus: oklch(80% 0.16 68);
+
+  /* rotating connection-line hues — distinct, evenly spaced, avoids the accent hue itself */
+  --color-link-1: oklch(74% 0.14 40);
+  --color-link-2: oklch(74% 0.13 175);
+  --color-link-3: oklch(74% 0.15 335);
+  --color-link-4: oklch(74% 0.14 245);
+  --color-link-5: oklch(74% 0.15 125);
+
+  --font-display: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
+  --font-body: "Inter", -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+
+  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.28);
+  --shadow-pop: 0 4px 16px oklch(0% 0 0 / 0.4), 0 1px 2px oklch(0% 0 0 / 0.3);
+}
+
+@media (prefers-color-scheme: light) {
+  /* MixPipe is dark-only by design (matches the reference tool + typical AV-desk tooling) */
+}

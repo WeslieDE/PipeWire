@@ -34,6 +34,6 @@ sudo chown -R "$(id -u):$(id -g)" \
     "$REPO_ROOT/dist" \
     "$REPO_ROOT/build-appimage" \
     "$REPO_ROOT/packaging/AppDir" \
-    "$REPO_ROOT/packaging/icon.png"
+    "$REPO_ROOT/packaging/mixpipe.png"
 
 echo "==> Fertig: $REPO_ROOT/dist/MixPipe-x86_64.AppImage"

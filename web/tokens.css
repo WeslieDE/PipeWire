@@ -1,34 +1,43 @@
 /* MixPipe design tokens. Portable — referenced by name everywhere, never inlined. */
 
+/* Werte bewusst als sRGB-Hex, nicht oklch(): das AppImage bündelt (für
+   Distro-Unabhängigkeit) Qt 6.4/Chromium 102 - oklch()/color-mix() landeten
+   erst in Chromium 111. Mit oklch() würden alle Farben dort als ungültig
+   verworfen (Layout bleibt, aber alles wird schwarz-auf-weiß). Werte unten
+   sind 1:1 aus den ursprünglichen oklch()-Definitionen umgerechnet. */
 :root {
   /* paper band: dark, faint cool undertone (not flat #000) */
-  --color-paper: oklch(15.5% 0.012 258);
-  --color-paper-2: oklch(19% 0.013 258);
-  --color-paper-3: oklch(24% 0.015 258);
-  --color-paper-4: oklch(29% 0.016 258);
-  --color-border: oklch(30% 0.014 258);
-  --color-border-strong: oklch(40% 0.016 258);
+  --color-paper: #090c11;
+  --color-paper-2: #10141a;
+  --color-paper-3: #1b2026;
+  --color-paper-4: #262c33;
+  --color-border: #2a2e35;
+  --color-border-strong: #424850;
 
-  --color-ink: oklch(95% 0.004 258);
-  --color-ink-dim: oklch(72% 0.012 258);
-  --color-ink-faint: oklch(52% 0.014 258);
+  --color-ink: #edeef1;
+  --color-ink-dim: #a0a5ac;
+  --color-ink-faint: #646971;
 
   /* accent: warm amber — deliberately not the violet/blue every "AI tool" reaches for */
-  --color-accent: oklch(78% 0.15 68);
-  --color-accent-ink: oklch(18% 0.03 68);
-  --color-accent-dim: oklch(45% 0.09 68);
+  --color-accent: #f5a33a;
+  --color-accent-ink: #1a0f04;
+  --color-accent-dim: #764a11;
+  --color-accent-glow: rgba(245, 163, 58, 0.3);
+  --color-accent-wash: rgba(245, 163, 58, 0.18);
+  /* color-accent 16% auf color-paper-3 gemischt, vorberechnet (siehe oben) */
+  --color-accent-tint: #3e3529;
 
-  --color-danger: oklch(66% 0.18 25);
-  --color-danger-ink: oklch(97% 0.01 25);
+  --color-danger: #ec5b57;
+  --color-danger-ink: #fcf3f2;
 
-  --color-focus: oklch(80% 0.16 68);
+  --color-focus: #ffa733;
 
   /* rotating connection-line hues — distinct, evenly spaced, avoids the accent hue itself */
-  --color-link-1: oklch(74% 0.14 40);
-  --color-link-2: oklch(74% 0.13 175);
-  --color-link-3: oklch(74% 0.15 335);
-  --color-link-4: oklch(74% 0.14 245);
-  --color-link-5: oklch(74% 0.15 125);
+  --color-link-1: #f48a64;
+  --color-link-2: #2dc5a6;
+  --color-link-3: #e484d0;
+  --color-link-4: #54b3fd;
+  --color-link-5: #95bb46;
 
   --font-display: "Space Grotesk", -apple-system, "Segoe UI", sans-serif;
   --font-body: "Inter", -apple-system, "Segoe UI", sans-serif;
@@ -64,10 +73,6 @@
   --dur-base: 200ms;
   --dur-slow: 320ms;
 
-  --shadow-card: 0 1px 2px oklch(0% 0 0 / 0.3), 0 8px 24px oklch(0% 0 0 / 0.28);
-  --shadow-pop: 0 4px 16px oklch(0% 0 0 / 0.4), 0 1px 2px oklch(0% 0 0 / 0.3);
-}
-
-@media (prefers-color-scheme: light) {
-  /* MixPipe is dark-only by design (matches the reference tool + typical AV-desk tooling) */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.28);
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
 }

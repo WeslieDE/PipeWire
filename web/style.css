@@ -96,7 +96,7 @@ svg { display: block; }
 
 .topbar-status[data-state="connected"] .status-dot {
   background: var(--color-accent);
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent) 22%, transparent);
+  box-shadow: 0 0 0 3px rgba(245, 163, 58, 0.22);
 }
 
 .topbar-status[data-state="disconnected"] .status-dot { background: var(--color-danger); }
@@ -355,7 +355,7 @@ svg { display: block; }
   color: var(--color-ink-dim);
 }
 .card-icon svg { width: 18px; height: 18px; }
-.card[data-virtual="true"] .card-icon { background: color-mix(in oklch, var(--color-accent) 16%, var(--color-paper-3)); color: var(--color-accent); }
+.card[data-virtual="true"] .card-icon { background: var(--color-accent-tint); color: var(--color-accent); }
 
 .card-title {
   flex: 1 1 auto;
@@ -378,7 +378,7 @@ svg { display: block; }
   font-size: var(--text-xs);
   padding: 1px 7px;
   border-radius: var(--radius-full);
-  background: color-mix(in oklch, var(--color-accent) 18%, transparent);
+  background: var(--color-accent-wash);
   color: var(--color-accent);
   font-weight: 500;
 }
@@ -520,7 +520,7 @@ svg { display: block; }
 .card[data-side="sink"] .connector-dot { left: -17px; }
 .connector-dot:hover, .connector-dot:focus-visible {
   transform: translateY(-50%) scale(1.25);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--dot-color, var(--color-accent)) 30%, transparent);
+  box-shadow: 0 0 0 4px var(--color-accent-glow);
 }
 .connector-dot.is-dragging { transform: translateY(-50%) scale(1.3); }
 
